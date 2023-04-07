@@ -1,29 +1,31 @@
 #!/usr/bin/python3
-import os
-from fabric.api import *
+"""Fabric script that deletes out-of-date archives"""
 
-env.hosts = ['100.25.19.204', '54.157.159.85']
+from fabric.api import env, run, local
+from datetime import datetime
+import os
+
+env.hosts = ['<54.210.83.3>', '52.205.77.18']
+env.user = 'ubuntu'
 
 
 def do_clean(number=0):
-    """Delete out-of-date archives.
+    """Deletes out-of-date archives"""
+    if int(number) <= 1:
+        number = 1
+    else:
+        number = int(number)
 
-    Args:
-        number (int): The number of archives to keep.
+    archives = sorted(os.listdir('versions'))
+    to_delete = archives[:-number]
+    if len(to_delete) > 0:
+        for archive in to_delete:
+            path = os.path.join('versions', archive)
+            local('rm {}'.format(path))
 
-    If number is 0 or 1, keeps only the most recent archive. If
-    number is 2, keeps the most and second-most recent archives,
-    etc.
-    """
-    number = 1 if int(number) == 0 else int(number)
-
-    archives = sorted(os.listdir("versions"))
-    [archives.pop() for i in range(number)]
-    with lcd("versions"):
-        [local("rm ./{}".format(a)) for a in archives]
-
-    with cd("/data/web_static/releases"):
-        archives = run("ls -tr").split()
-        archives = [a for a in archives if "web_static_" in a]
-        [archives.pop() for i in range(number)]
-        [run("rm -rf ./{}".format(a)) for a in archives]
+    releases = sorted(run('ls /data/web_static/releases').split())
+    to_delete = releases[:-number]
+    if len(to_delete) > 0:
+        for release in to_delete:
+            path = '/data/web_static/releases/{}'.format(release)
+            run('sudo rm -rf {}'.format(path))
