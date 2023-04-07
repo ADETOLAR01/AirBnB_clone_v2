@@ -1,87 +1,96 @@
-# Puppet for setup
+# Install Puppet on your web servers if it is not already installed:
+sudo apt-get update
+sudo apt-get install puppet -y
 
-$nginx_conf = "server {
+sudo nano /etc/puppet/modules/web_static/manifests/0-setup_web_static.pp
+
+# sudo puppet module install puppetlabs-nginx
+sudo puppet module install puppetlabs-nginx
+
+# Install Nginx
+class { 'nginx': }
+
+# Create necessary directories
+file { '/data':
+    ensure => 'directory',
+    owner  => 'ubuntu',
+    group  => 'ubuntu',
+}
+
+file { '/data/web_static':
+    ensure => 'directory',
+    owner  => 'ubuntu',
+    group  => 'ubuntu',
+}
+
+file { '/data/web_static/releases':
+    ensure => 'directory',
+    owner  => 'ubuntu',
+    group  => 'ubuntu',
+}
+
+file { '/data/web_static/shared':
+    ensure => 'directory',
+    owner  => 'ubuntu',
+    group  => 'ubuntu',
+}
+
+file { '/data/web_static/releases/test':
+    ensure => 'directory',
+    owner  => 'ubuntu',
+    group  => 'ubuntu',
+}
+
+# Create fake HTML file
+file { '/data/web_static/releases/test/index.html':
+    content => '<html><head></head><body>Holberton School</body></html>',
+    ensure  => 'file',
+    owner   => 'ubuntu',
+    group   => 'ubuntu',
+}
+
+# Create symbolic link
+file { '/data/web_static/current':
+    ensure  => 'link',
+    target  => '/data/web_static/releases/test/',
+    owner   => 'ubuntu',
+    group   => 'ubuntu',
+    require => File['/data/web_static/releases/test'],
+}
+
+# Update Nginx configuration
+file { '/etc/nginx/sites-available/default':
+    content => "
+server {
     listen 80 default_server;
     listen [::]:80 default_server;
-    add_header X-Served-By ${hostname};
-    root   /var/www/html;
-    index  index.html index.htm;
+
+    root /var/www/html;
+
+    index index.html index.htm index.nginx-debian.html;
+
+    server_name _;
+
     location /hbnb_static {
-        alias /data/web_static/current;
-        index index.html index.htm;
+        alias /data/web_static/current/;
     }
-    location /redirect_me {
-        return 301 http://linktr.ee/firdaus_h_salim/;
+
+    location / {
+        try_files $uri $uri/ =404;
     }
-    error_page 404 /404.html;
-    location /404 {
-      root /var/www/html;
-      internal;
-    }
-}"
-
-package { 'nginx':
-  ensure   => 'present',
-  provider => 'apt'
+}
+",
+    ensure => 'file',
+    owner  => 'root',
+    group  => 'root',
+    mode   => '0644',
 }
 
--> file { '/data':
-  ensure  => 'directory'
+# Restart Nginx
+service { 'nginx':
+    ensure    => 'running',
+    enable    => true,
+    subscribe => File['/etc/nginx/sites-available/default'],
 }
 
--> file { '/data/web_static':
-  ensure => 'directory'
-}
-
--> file { '/data/web_static/releases':
-  ensure => 'directory'
-}
-
--> file { '/data/web_static/releases/test':
-  ensure => 'directory'
-}
-
--> file { '/data/web_static/shared':
-  ensure => 'directory'
-}
-
--> file { '/data/web_static/releases/test/index.html':
-  ensure  => 'present',
-  content => "this webpage is found in data/web_static/releases/test/index.htm \n"
-}
-
--> file { '/data/web_static/current':
-  ensure => 'link',
-  target => '/data/web_static/releases/test'
-}
-
--> exec { 'chown -R ubuntu:ubuntu /data/':
-  path => '/usr/bin/:/usr/local/bin/:/bin/'
-}
-
-file { '/var/www':
-  ensure => 'directory'
-}
-
--> file { '/var/www/html':
-  ensure => 'directory'
-}
-
--> file { '/var/www/html/index.html':
-  ensure  => 'present',
-  content => "This is my first upload  in /var/www/index.html***\n"
-}
-
--> file { '/var/www/html/404.html':
-  ensure  => 'present',
-  content => "Ceci n'est pas une page - Error page\n"
-}
-
--> file { '/etc/nginx/sites-available/default':
-  ensure  => 'present',
-  content => $nginx_conf
-}
-
--> exec { 'nginx restart':
-  path => '/etc/init.d/'
-}
+sudo puppet apply /etc/puppet/modules/web_static/manifests/0-setup_web_static.pp
